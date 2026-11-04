@@ -4,65 +4,57 @@ Lokalna aplikacja webowa (PWA) do kontroli terminów ważności farb na dziale f
 
 > PaintStock jest niezależnym narzędziem. Nie jest produktem PPG i nie jest przez PPG autoryzowany.
 
-## Pliki
+## Jeden plik: `index.html`
 
-| Plik | Rola | Wymagany? |
-|---|---|---|
-| `index.html` | Cała aplikacja: HTML + CSS + JS | **tak** |
-| `sw.js` | Service Worker, czyli praca offline | do trybu offline |
-| `manifest.webmanifest`, `icons/` | Instalacja na ekranie głównym (PWA) | opcjonalne |
-| `vendor/zxing.min.js` | Skaner ZXing 0.21.3 (Apache-2.0) jako zapasowy silnik | zalecany, w razie braku pobierany z CDN |
+Cała aplikacja, łącznie ze skanerem ZXing i ikoną, mieści się w **jednym pliku `index.html` (~500 KB)**. Wystarczy skopiować go na urządzenie, bez serwera, bez internetu i bez innych plików.
 
-## Uruchomienie
-
-### ⚠️ Aparat wymaga HTTPS albo localhost
-
-Przeglądarki udostępniają `getUserMedia()` (aparat) tylko w **bezpiecznym kontekście**:
-
-- `https://…` – dowolny hosting z certyfikatem,
-- `http://localhost` / `http://127.0.0.1` – serwer lokalny.
-
-Pod adresem `http://192.168.x.x` (np. komputer w sieci lokalnej otwarty na telefonie) **aparat nie zadziała**. Aplikacja wtedy działa dalej, ale kody trzeba wpisywać ręcznie. W *Ustawienia → O aplikacji* widać, czy kontekst jest bezpieczny.
-
-### A) Hosting HTTPS (zalecane dla telefonu z Androidem)
-
-Wrzuć zawartość katalogu na dowolny statyczny hosting z HTTPS, np. GitHub Pages (Settings → Pages → branch), Netlify, Cloudflare Pages. Otwórz adres w Chrome na Androidzie, a potem w menu ⋮ wybierz **Zainstaluj aplikację** / **Dodaj do ekranu głównego**. Po pierwszym załadowaniu aplikacja działa offline.
-
-Hosting serwuje tylko pliki aplikacji. Twoje dane nigdy tam nie trafiają.
-
-### B) Komputer, serwer lokalny
-
-```bash
-cd paintstock
-python3 -m http.server 8080
-# otwórz http://localhost:8080
-```
-
-(albo `npx serve .`). Kamera internetowa działa, Service Worker też.
-
-### C) Telefon podłączony do komputera kablem (bez hostingu)
-
-```bash
-python3 -m http.server 8080          # na komputerze
-adb reverse tcp:8080 tcp:8080        # Android z włączonym debugowaniem USB
-# na telefonie w Chrome: http://localhost:8080
-```
-
-Dla telefonu to `localhost`, więc aparat działa.
-
-### D) Otwarcie pliku bezpośrednio (`file://`)
-
-Dwuklik na `index.html` uruchamia aplikację, ale z ograniczeniami:
-
-| Funkcja | `file://` |
+| Funkcja | Sam `index.html` z dysku |
 |---|---|
-| Lista, formularze, IndexedDB, eksport/import | ✅ działa (Chrome/Edge/Firefox na komputerze) |
-| Aparat | ⚠️ zależy od przeglądarki: Chrome na komputerze zwykle pyta o zgodę i działa, inne mogą blokować |
-| Service Worker (offline) | ❌ nie działa |
-| Instalacja jako aplikacja | ❌ nie działa |
-| Android | ❌ współczesny Chrome praktycznie nie otwiera lokalnych plików HTML. Użyj A lub C |
+| Lista, partie, kolory terminów, filtry | ✅ |
+| Zapis danych | ✅ IndexedDB, a gdy przeglądarka go nie da, to `localStorage` |
+| Skaner (BarcodeDetector lub wbudowany ZXing) | ✅ gdy przeglądarka udostępni aparat (zob. niżej) |
+| Eksport CSV/JSON, import JSON | ✅ |
+| OCR daty (Tesseract.js) | 🌐 jedyna funkcja wymagająca internetu (pobiera ~10–15 MB z CDN). Bez sieci datę wpisujesz ręcznie |
 
-Dane zapisane przez `file://` są w innym „miejscu” niż dane z `http://localhost`. Przenosisz je eksportem/importem JSON.
+Pozostałe pliki w repo są **opcjonalne** i przydają się tylko przy serwowaniu przez http(s):
+
+| Plik | Rola |
+|---|---|
+| `sw.js` | Service Worker: offline przy hostingu |
+| `manifest.webmanifest`, `icons/` | Instalacja jako aplikacja (PWA) |
+
+## Uruchomienie na urządzeniu
+
+### 💻 Komputer (Chrome / Edge)
+Skopiuj `index.html` gdziekolwiek i otwórz dwuklikiem. Chrome traktuje plik lokalny jako bezpieczny kontekst, więc kamera internetowa działa po udzieleniu zgody. Zweryfikowane w Chromium: skan EAN-13 z kamery, zapis w IndexedDB, dane po ponownym otwarciu, zero zapytań sieciowych.
+
+### 📱 Android, wariant 1: otwarcie pliku
+Skopiuj `index.html` do telefonu (np. do *Pobrane*) i otwórz go w Chrome z menedżera plików („Otwórz w…” → Chrome).
+
+⚠️ **Nie zweryfikowano na fizycznym telefonie.** Chrome na Androidzie otwiera pliki przez adres `content://…`, a przeglądarka może wtedy ograniczyć dostęp do aparatu lub do zapisu danych. Aplikacja sama to wykrywa:
+- *Ustawienia → O aplikacji* pokazuje, czy aparat jest dostępny i gdzie zapisywane są dane,
+- jeśli zapis jest niemożliwy, na stronie głównej pojawia się czerwony komunikat,
+- jeśli aparat jest zablokowany, kody wpisujesz ręcznie.
+
+### 📱 Android, wariant 2 (pewny, nadal w 100% na telefonie): Termux
+[Termux](https://termux.dev) (z F-Droid lub GitHub) uruchamia mini-serwer **na samym telefonie**, a `localhost` to bezpieczny kontekst, więc działa aparat, zapis danych, a nawet Service Worker:
+
+```bash
+termux-setup-storage            # jednorazowo: dostęp do pamięci telefonu
+cd ~/storage/downloads          # folder z index.html
+python -m http.server 8080      # (pkg install python, jeśli brak)
+```
+
+W Chrome otwórz `http://localhost:8080/index.html`. Nic nie wychodzi poza telefon. Używaj zawsze tego samego portu, bo dane są przypisane do adresu `localhost:8080`.
+
+### Dlaczego aparat bywa zablokowany
+`getUserMedia()` działa tylko w **bezpiecznym kontekście**: `https://`, `http://localhost` lub (w Chrome na komputerze) plik lokalny. Pod `http://192.168.x.x` aparat **nie zadziała** nigdy.
+
+### Opcjonalnie: hosting HTTPS
+Wrzucenie katalogu na GitHub Pages, Netlify itp. daje instalację jako aplikacja (PWA) i offline przez Service Worker. Dane i tak zostają tylko na urządzeniu.
+
+### Przenoszenie danych
+Dane są przypisane do sposobu otwarcia: plik z dysku, `localhost:8080` i hosting to trzy osobne „magazyny”. Przenosisz je przez *Ustawienia → Eksport JSON → Import JSON*.
 
 ## Skaner
 
@@ -91,7 +83,7 @@ Statystyka „Produkty z terminem do 31 dni” liczy produkty z partią w przedz
 
 ## Dane
 
-- IndexedDB (`paintstock`: `products`, `batches`, `meta`). Każda zmiana zapisuje się od razu, transakcyjnie.
+- IndexedDB (`paintstock`: `products`, `batches`, `meta`). Każda zmiana zapisuje się od razu, transakcyjnie. Gdy IndexedDB jest niedostępne (np. niektóre sposoby otwierania pliku), aplikacja automatycznie przechodzi na `localStorage` (limit ok. 5 MB, czyli tysiące partii).
 - Niezapisany formularz jest zachowywany jako szkic, więc przetrwa nawet zabicie karty przez Androida podczas robienia zdjęcia do OCR.
 - Aplikacja prosi o *trwałe przechowywanie* (`navigator.storage.persist`), żeby przeglądarka nie czyściła danych przy braku miejsca. Najpewniej działa to po instalacji jako PWA.
 - **Kopia zapasowa:** eksport JSON (pełny, do ponownego importu) i CSV (do Excela, separator `;`, UTF-8 z BOM).
@@ -107,5 +99,7 @@ batch   { id, productId, lot, expiry: "RRRR-MM-DD", qty, zone, rack, shelf, note
 Jeden produkt (kod) może mieć dowolnie wiele partii. Dodanie partii o istniejącym numerze nigdy jej nie nadpisuje: aplikacja pyta, czy dodać puszki do istniejącej partii, czy zapisać osobny wpis.
 
 ## Rozbudowa
+
+ZXing 0.21.3 (`@zxing/library`, Apache-2.0) jest osadzony w `index.html` jako nieaktywny blok `<script type="text/plain" id="zxing-src">` i uruchamiany dopiero wtedy, gdy przeglądarka nie ma natywnego `BarcodeDetector`. Aktualizacja polega na podmianie zawartości tego bloku.
 
 Kod w `index.html` jest podzielony na moduły-obiekty: `D` (daty), `DB` (IndexedDB), `Store` (stan), `Overlay`/`Router` (okna i historia, w tym przycisk Wstecz na Androidzie), `Home`, `Products`, `Detail`, `Form`, `Draft`, `Scanner`, `GS1`, `OCR`, `IO`, `Demo`, `SettingsView`, `App`. Przyciski działają przez delegację `data-action` → `App.actions`. Po zmianie plików aplikacji podbij `VERSION` w `sw.js`, żeby urządzenia pobrały nową wersję.

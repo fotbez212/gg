@@ -3,7 +3,7 @@
    - Pliki aplikacji: stale-while-revalidate (natychmiast z pamięci, w tle odświeżenie).
    - Biblioteki z CDN (ZXing, Tesseract.js + dane językowe): cache-first.
    Dane użytkownika NIE przechodzą przez Service Worker — są w IndexedDB. */
-const VERSION = 'paintstock-v1.0.0';
+const VERSION = 'paintstock-v1.1.0';
 const CORE_CACHE = VERSION + '-core';
 const RUNTIME_CACHE = 'paintstock-runtime-v1';
 
@@ -14,8 +14,7 @@ const CORE = [
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/icon-maskable-512.png',
-  './vendor/zxing.min.js'
+  './icons/icon-maskable-512.png'
 ];
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'tessdata.projectnaptha.com'];
 
